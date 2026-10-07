@@ -44,7 +44,7 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;
 function cur(){return S.mats.filter(function(m){return m.id===S.sel})[0]}
 function due(){var n=Date.now();return S.cards.filter(function(c){return c.due<=n})}
 sample=async function(p){var r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})});
- if(!r.ok)throw{code:r.status===429?"rate_limited":"error"};var d=await r.json();return{text:d.text,truncated:false}};
+ if(!r.ok){var er=await r.json().catch(function(){return{}});throw{code:r.status===429?"rate_limited":"error",msg:er.error||("HTTP "+r.status)}}var d=await r.json();return{text:d.text,truncated:false}};
 sample.json=async function(p){var t=(await sample(p+"\n\nReturn only valid JSON, no commentary.")).text.replace(/```json|```/g,"").trim();return JSON.parse(t)};
 async function readFile(f){var n=f.name.toLowerCase();
  if(/\.(txt|md)$/.test(n))return f.text();
@@ -72,15 +72,15 @@ var P={
 async function run(kind,out,btn){
  if(!sample){out.textContent="AI is unavailable right now.";return}
  var m=cur();btn.disabled=true;out.className="out mut";out.textContent="Working...";
- try{var r=await sample(P[kind]+"\n\nBase everything on the material. If it lacks enough information, say so. Do not invent facts. This is for education only.\n\nMATERIAL:\n"+m.text.slice(0,24000),{cache:false,onText:function(o){out.className="out";out.textContent=o.text}});
+ try{var r=await sample(P[kind]+"\n\nBase everything on the material. If it lacks enough information, say so. Do not invent facts. This is for education only.\n\nMATERIAL:\n"+m.text.slice(0,12000),{cache:false,onText:function(o){out.className="out";out.textContent=o.text}});
   out.className="out";out.textContent=r.text+(r.truncated?"\n\n[Output was cut short.]":"")}
- catch(e){out.className="out err";out.textContent=e&&e.code==="not_granted"?"The AI request was refused.":e&&e.code==="rate_limited"?"Too many requests. Wait a moment and try again.":"The AI request failed. Please try again."}
+ catch(e){out.className="out err";out.textContent=e&&e.code==="not_granted"?"The AI request was refused.":e&&e.code==="rate_limited"?"Too many requests. Wait a moment and try again.":"The AI request failed: "+(e&&e.msg||"unknown error")}
  btn.disabled=false}
 async function genJSON(prompt,out,btn){
  if(!sample){out.textContent="AI is unavailable right now.";return null}
  btn.disabled=true;out.className="mut";out.textContent="Generating...";
- try{var j=await sample.json(prompt+"\n\nBase everything on this material only; no invented facts.\n\nMATERIAL:\n"+cur().text.slice(0,24000),{cache:false});btn.disabled=false;out.textContent="";return j}
- catch(e){btn.disabled=false;out.className="err";out.textContent="Generation failed. Please try again.";return null}}
+ try{var j=await sample.json(prompt+"\n\nBase everything on this material only; no invented facts.\n\nMATERIAL:\n"+cur().text.slice(0,12000),{cache:false});btn.disabled=false;out.textContent="";return j}
+ catch(e){btn.disabled=false;out.className="err";out.textContent="Generation failed: "+(e&&e.msg||"unknown error");return null}}
 function grade(c,g){var ef=c.ef||2.5,iv=c.iv||0;
  if(g===0){iv=0;ef=Math.max(1.3,ef-.2);c.due=Date.now()+10*6e4}
  else{ef=Math.max(1.3,ef+(g===1?-.15:g===3?.1:0));iv=g===1?Math.max(1,iv*1.2):iv<1?(g===3?3:1):iv*ef*(g===3?1.3:1);c.due=Date.now()+iv*864e5}
