@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + process.env.AI_API_KEY },
       body: JSON.stringify({ model: process.env.AI_MODEL || "gpt-4o-mini", messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }] }),
     });
-    if (!r.ok) return res.status(r.status === 429 ? 429 : 502).json({ error: "AI provider error" });
+    if (!r.ok) { const t = await r.text(); return res.status(r.status === 429 ? 429 : 502).json({ error: "Provider " + r.status + ": " + t.slice(0, 200) }); }
     const d = await r.json();
     res.status(200).json({ text: d.choices[0].message.content });
   } catch (e) { res.status(502).json({ error: "AI request failed" }); }
