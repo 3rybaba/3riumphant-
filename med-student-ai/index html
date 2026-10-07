@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3riumphant Med Student AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#F3F5F2; --ink:#10243E; --vessel:#D9462B; --mist:#DCE4E8; --white:#fff; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:'Bricolage Grotesque',system-ui,sans-serif; background:var(--paper); color:var(--ink); line-height:1.5; }
+  main { max-width:640px; margin:0 auto; padding:56px 22px 64px; }
+  .logo { font-weight:800; font-size:1.1rem; }
+  .logo b { color:var(--vessel); }
+  h1 { font-size:clamp(2.4rem,9vw,3.8rem); line-height:1.02; font-weight:800; margin:44px 0 18px; letter-spacing:-.02em; }
+  .lead { font-size:1.1rem; max-width:48ch; }
+  ul { list-style:none; padding:0; margin:34px 0; border-top:2px solid var(--ink); }
+  li { padding:14px 0; border-bottom:1px solid var(--mist); }
+  li strong { display:block; font-size:1.05rem; }
+  li span { color:#4a5b70; }
+  .card { background:var(--white); border:2px solid var(--ink); border-radius:6px; padding:24px; margin-top:40px; }
+  .card h2 { font-size:1.4rem; margin-bottom:4px; }
+  .tabs { display:flex; gap:18px; margin:14px 0 16px; }
+  .tabs button { background:none; border:0; font:inherit; font-weight:600; padding:4px 0; cursor:pointer; color:#6b7a8d; border-bottom:3px solid transparent; }
+  .tabs button.on { color:var(--ink); border-color:var(--vessel); }
+  input { width:100%; font:inherit; padding:13px 12px; margin-bottom:12px; border:1.5px solid var(--ink); border-radius:4px; background:var(--paper); }
+  .go { width:100%; font:inherit; font-weight:600; padding:14px; border:0; border-radius:4px; background:var(--vessel); color:#fff; cursor:pointer; }
+  .go:disabled { opacity:.6; }
+  :focus-visible { outline:3px solid var(--vessel); outline-offset:2px; }
+  #msg { margin-top:12px; font-size:.95rem; min-height:1.4em; }
+  .err { color:#b3261e; } .ok { color:#1d6b3a; }
+  footer { margin-top:48px; font-size:.85rem; color:#4a5b70; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">3riumphant <b>Med Student AI</b></div>
+
+  <h1>Study medicine the way you learn best.</h1>
+  <p class="lead">3riumphant Med Student AI turns your lecture notes into questions, explanations and revision plans, so you spend less time organising and more time understanding.</p>
+
+  <ul>
+    <li><strong>Practice questions from your own notes</strong><span>Upload a topic and get exam-style questions on it.</span></li>
+    <li><strong>Explanations that make sense</strong><span>Ask why an answer is right and get a clear, step-by-step reply.</span></li>
+    <li><strong>A revision plan you can follow</strong><span>Tell us your exam date and we'll pace the topics.</span></li>
+  </ul>
+
+  <section class="card" id="auth">
+    <h2 id="title">Create your free account</h2>
+    <div class="tabs">
+      <button id="tabUp" class="on" type="button">Sign up</button>
+      <button id="tabIn" type="button">Log in</button>
+    </div>
+    <div id="nameWrap"><input id="name" type="text" placeholder="Full name" autocomplete="name"></div>
+    <input id="email" type="email" placeholder="Email" autocomplete="email">
+    <input id="password" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password">
+    <button class="go" id="go" type="button">Create account</button>
+    <p id="msg" role="status"></p>
+  </section>
+
+  <footer>&copy; 3riumphant Med Student AI</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // 1) Paste your publishable key between the quotes below
+  const SUPABASE_URL = "https://dcturyfillpsyhnfvbji.supabase.co";
+const SUPABASE_KEY = "sb_publishable_UxjMbSY6FT0R35KVtaDpMg_UwsoPKS-";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let mode = "up";
+  const $ = id => document.getElementById(id);
+
+  function setMode(m) {
+    mode = m;
+    $("tabUp").classList.toggle("on", m === "up");
+    $("tabIn").classList.toggle("on", m === "in");
+    $("nameWrap").style.display = m === "up" ? "block" : "none";
+    $("title").textContent = m === "up" ? "Create your free account" : "Welcome back";
+    $("go").textContent = m === "up" ? "Create account" : "Log in";
+    $("msg").textContent = "";
+  }
+  $("tabUp").onclick = () => setMode("up");
+  $("tabIn").onclick = () => setMode("in");
+
+  function say(text, ok) { $("msg").textContent = text; $("msg").className = ok ? "ok" : "err"; }
+
+  $("go").onclick = async () => {
+    const email = $("email").value.trim();
+    const password = $("password").value;
+    if (!email || password.length < 6) return say("Enter your email and a password of at least 6 characters.", false);
+    $("go").disabled = true;
+    try {
+      if (mode === "up") {
+        const { data, error } = await sb.auth.signUp({
+          email, password, options: { data: { full_name: $("name").value.trim() } }
+        });
+        if (error) throw error;
+        if (data.session) {
+          await sb.from("profiles").upsert({ id: data.user.id, full_name: $("name").value.trim() });
+          say("Account created. You're signed in.", true);
+        } else {
+          say("Account created. Check your email to confirm, then log in.", true);
+        }
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        say("You're logged in.", true);
+      }
+    } catch (e) {
+      say(e.message, false);
+    }
+    $("go").disabled = false;
+  };
+
+  sb.auth.getSession().then(({ data }) => {
+    if (data.session) say("Signed in as " + data.session.user.email, true);
+  });
+</script>
+</body>
+</html>
